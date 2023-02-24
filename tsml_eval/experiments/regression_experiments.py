@@ -90,10 +90,11 @@ def run_experiment(args, overwrite=False):
         regressor_name = "LR"
         dataset = "Covid3Month"
         resample = 0
+        checkpoint = f'../checkpoint/{regressor_name}/{dataset}/{resample}'
         train_fold = False
         predefined_resample = False
         regressor = set_regressor(
-            regressor_name, random_state=resample, build_train_file=train_fold
+            regressor_name, random_state=resample, build_train_file=train_fold, checkpoint=checkpoint
         )
         print(f"Local Run of {regressor_name} ({regressor.__class__.__name__}).")
 

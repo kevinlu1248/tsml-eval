@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """Basic knn regressor."""
 
-__author__ = ["TonyBagnall", "GuiArcencio"]
+__author__ = ["TonyBagnall", "GuiArcencio", "dguijo"]
 __all__ = ["KNeighborsTimeSeriesRegressor"]
 
+import os
 import numpy as np
 from sktime.distances import distance_factory
 from sktime.regression.base import BaseRegressor
+from joblib import dump, load
 
 
 class KNeighborsTimeSeriesRegressor(BaseRegressor):
@@ -36,11 +38,13 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
         distance_params=None,
         n_neighbours=1,
         weights="uniform",
+        checkpoint=None,
     ):
         self.distance = distance
         self.distance_params = distance_params
         self.n_neighbours = n_neighbours
         self.weights = weights
+        self.checkpoint = checkpoint
 
         super(KNeighborsTimeSeriesRegressor, self).__init__()
 
@@ -79,9 +83,19 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
         -------
         y : predictions of target values for X, np.ndarray
         """
-        # Measure distance between train set (self_X) and test set (X)
         preds = np.zeros(X.shape[0])
-        for i in range(X.shape[0]):
+        index = 0
+        # checkpoint includes a path with the pid.
+        if isinstance(self.checkpoint, str):
+            if os.path.isfile(f'{self.checkpoint}.run'):
+                saved_files = load(f'{self.checkpoint}.run')
+                preds = saved_files['preds']
+                index = saved_files['index']
+            else:
+                os.makedirs('/'.join(self.checkpoint.split('/')[:-1]))
+
+        # Measure distance between train set (self_X) and test set (X)
+        for i in range(index, X.shape[0]):
             distances = np.array(
                 [self.metric(X[i], self._X[j]) for j in range(self._X.shape[0])]
             )
@@ -107,4 +121,10 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
                 preds[i] = np.mean(closest_targets)
             else:
                 raise Exception(f"Invalid kNN weights: {self.weights}")
+
+            # Saving files in case checkpoint is selected.
+            if isinstance(self.checkpoint, str) and (i%5 == 0):
+                saved_files = {'preds': preds, 'index': i}
+                dump(saved_files, f'{self.checkpoint}.run')
+
         return preds

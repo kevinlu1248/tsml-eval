@@ -16,6 +16,7 @@ def set_regressor(
     random_state=None,
     build_train_file=False,
     n_jobs=1,
+    checkpoint=None,
     fit_contract=0,
     kwargs=None,
 ):
@@ -77,43 +78,12 @@ def set_regressor(
         )
 
         return IndividualInceptionTimeRegressor(random_state=random_state)
+    
     elif r == "fcnn" or r == "fcn" or r == "fcnnregressor":
         from tsml_eval.sktime_estimators.regression.deep_learning import FCNRegressor
 
         return FCNRegressor(random_state=random_state)
-
-    elif r == "sktime-1nn-ed":
-        from sktime.regression.distance_based import KNeighborsTimeSeriesRegressor
-
-        return KNeighborsTimeSeriesRegressor(
-            n_neighbors=1,
-            distance="euclidean",
-        )
-    elif r == "sktime-1nn-dtw":
-        from sktime.regression.distance_based import KNeighborsTimeSeriesRegressor
-
-        return KNeighborsTimeSeriesRegressor(
-            distance="dtw",
-            distance_params={"window": 0.1},
-            n_neighbors=1,
-            n_jobs=n_jobs,
-        )
-    elif r == "sktime-5nn-ed":
-        from sktime.regression.distance_based import KNeighborsTimeSeriesRegressor
-
-        return KNeighborsTimeSeriesRegressor(
-            n_neighbors=5,
-            distance="euclidean",
-        )
-    elif r == "sktime-5nn-dtw":
-        from sktime.regression.distance_based import KNeighborsTimeSeriesRegressor
-
-        return KNeighborsTimeSeriesRegressor(
-            distance="dtw",
-            n_neighbors=5,
-            distance_params={"window": 0.1},
-            n_jobs=n_jobs,
-        )
+    
     elif r == "1nn-ed":
         from tsml_eval.sktime_estimators.regression.distance_based import (
             KNeighborsTimeSeriesRegressor,
@@ -122,6 +92,7 @@ def set_regressor(
         return KNeighborsTimeSeriesRegressor(
             distance="euclidean",
             n_neighbours=1,
+            checkpoint=checkpoint,
         )
     elif r == "5nn-ed":
         from tsml_eval.sktime_estimators.regression.distance_based import (
@@ -131,6 +102,7 @@ def set_regressor(
         return KNeighborsTimeSeriesRegressor(
             distance="euclidean",
             n_neighbours=5,
+            checkpoint=checkpoint,
         )
     elif r == "1nn-dtw":
         from tsml_eval.sktime_estimators.regression.distance_based import (
@@ -141,6 +113,7 @@ def set_regressor(
             n_neighbours=1,
             distance="dtw",
             distance_params={"window": 0.1},
+            checkpoint=checkpoint,
         )
     elif r == "5nn-dtw":
         from tsml_eval.sktime_estimators.regression.distance_based import (
@@ -151,6 +124,7 @@ def set_regressor(
             n_neighbours=5,
             distance="dtw",
             distance_params={"window": 0.1},
+            checkpoint=checkpoint,
         )
     elif r == "rocket" or r == "rocketregressor":
         from sktime.regression.kernel_based import RocketRegressor
