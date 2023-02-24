@@ -60,6 +60,11 @@ def run_experiment(args, overwrite=False):
         else:
             predefined_resample = False
 
+        if len(args) > 8:
+            checkpoint = args[8]
+        else:
+            checkpoint = None
+
         # this is also checked in load_and_run, but doing a quick check here so can
         # print a message and make sure data is not loaded
         if not overwrite and _results_present(
@@ -72,7 +77,7 @@ def run_experiment(args, overwrite=False):
                 results_dir,
                 dataset,
                 set_regressor(
-                    regressor_name, random_state=resample, build_train_file=train_fold
+                    regressor_name, random_state=resample, build_train_file=train_fold, checkpoint=checkpoint
                 ),
                 resample_id=resample,
                 regressor_name=regressor_name,
