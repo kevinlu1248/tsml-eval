@@ -61,7 +61,7 @@ def run_experiment(args, overwrite=False):
             predefined_resample = False
 
         if len(args) > 8:
-            checkpoint = args[8]
+            checkpoint = f'{args[8]}{regressor_name}/{dataset}/{resample}'
         else:
             checkpoint = None
 
