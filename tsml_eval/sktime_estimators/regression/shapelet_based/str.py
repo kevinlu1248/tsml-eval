@@ -151,6 +151,7 @@ class ShapeletTransformRegressor(BaseRegressor):
         n_jobs=1,
         batch_size=100,
         random_state=None,
+        checkpoint=None,
     ):
         self.n_shapelet_samples = n_shapelet_samples
         self.max_shapelets = max_shapelets
@@ -165,6 +166,7 @@ class ShapeletTransformRegressor(BaseRegressor):
         self.random_state = random_state
         self.batch_size = batch_size
         self.n_jobs = n_jobs
+        self.checkpoint = checkpoint
 
         self.n_instances_ = 0
         self.n_dims_ = 0
@@ -175,6 +177,7 @@ class ShapeletTransformRegressor(BaseRegressor):
         self._estimator = estimator
         self._transform_limit_in_minutes = 0
         self._classifier_limit_in_minutes = 0
+        self._fit_time = 0
 
         super(ShapeletTransformRegressor, self).__init__()
 
@@ -218,6 +221,7 @@ class ShapeletTransformRegressor(BaseRegressor):
             n_jobs=self.n_jobs,
             batch_size=self.batch_size,
             random_state=self.random_state,
+            checkpoint=self.checkpoint,
         )
 
         self._estimator = _clone_estimator(
@@ -237,6 +241,9 @@ class ShapeletTransformRegressor(BaseRegressor):
             self._estimator.time_limit_in_minutes = self._classifier_limit_in_minutes
 
         X_t = self._transformer.fit_transform(X, y).to_numpy()
+
+        if isinstance(self.checkpoint, str):
+            self._fit_time = getattr(self._transformer, "_fit_time", 0)
 
         if self.save_transformed_data:
             self.transformed_data_ = X_t

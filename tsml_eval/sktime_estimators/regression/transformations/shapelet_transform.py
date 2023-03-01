@@ -9,21 +9,16 @@ __all__ = ["RandomShapeletTransform"]
 
 import heapq
 import math
+import os
 import time
-import warnings
-from itertools import zip_longest
-from operator import itemgetter
 
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, dump, load
 from numba import njit
 from numba.typed.typedlist import List
 from scipy.stats import linregress
-from sklearn import preprocessing
-from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_random_state
-from sklearn.utils.multiclass import class_distribution
 from sktime.transformations.base import BaseTransformer
 from sktime.utils.numba.general import z_normalise_series
 from sktime.utils.validation import check_n_jobs
@@ -165,6 +160,7 @@ class RandomShapeletTransform(BaseTransformer):
         parallel_backend=None,
         batch_size=100,
         random_state=None,
+        checkpoint=None,
     ):
         self.n_shapelet_samples = n_shapelet_samples
         self.max_shapelets = max_shapelets
@@ -179,6 +175,7 @@ class RandomShapeletTransform(BaseTransformer):
         self.parallel_backend = parallel_backend
         self.batch_size = batch_size
         self.random_state = random_state
+        self.checkpoint = checkpoint
 
         # The following set in method fit
         self.n_classes = 0
@@ -195,6 +192,7 @@ class RandomShapeletTransform(BaseTransformer):
         self._class_counts = []
         self._class_dictionary = {}
         self._sorted_indicies = []
+        self._fit_time = 0
 
         super(RandomShapeletTransform, self).__init__()
 
@@ -230,6 +228,23 @@ class RandomShapeletTransform(BaseTransformer):
         shapelets = List([(-1.0, -1, -1, -1, -1, -1.0)])
         n_shapelets_extracted = 0
 
+        if isinstance(self.checkpoint, str):
+            if os.path.isfile(f"{self.checkpoint}_final.run"):
+                saved_files = load(f"{self.checkpoint}_final.run")
+                self.shapelets = saved_files["shapelets"]
+                self._sorted_indicies = saved_files["_sorted_indicies"]
+                self._fit_time = saved_files["_fit_time"]
+                return self
+
+            elif os.path.isfile(f"{self.checkpoint}_intermediate.run"):
+                saved_files = load(f"{self.checkpoint}_intermediate.run")
+                shapelets = List(saved_files["shapelets"])
+                n_shapelets_extracted = saved_files["n_shapelets_extracted"]
+                self._fit_time = saved_files["_fit_time"]
+                fit_time = self._fit_time
+            else:
+                os.makedirs("/".join(self.checkpoint.split("/")[:-1]), exist_ok=True)
+
         if time_limit > 0:
             while (
                 fit_time < time_limit
@@ -257,7 +272,15 @@ class RandomShapeletTransform(BaseTransformer):
                     shapelets = List([n for (n, b) in zip(shapelets, to_keep) if b])
 
                 n_shapelets_extracted += self._batch_size
-                fit_time = time.time() - start_time
+                fit_time = time.time() - start_time + self._fit_time
+
+                if isinstance(self.checkpoint, str):
+                    saved_files = {
+                        "shapelets": [tuple(i) for i in shapelets],
+                        "n_shapelets_extracted": n_shapelets_extracted,
+                        "_fit_time": fit_time,
+                    }
+                    dump(saved_files, f"{self.checkpoint}_intermediate.run")
         else:
             while n_shapelets_extracted < self._n_shapelet_samples:
                 n_shapelets_to_extract = (
@@ -290,6 +313,14 @@ class RandomShapeletTransform(BaseTransformer):
 
                 n_shapelets_extracted += n_shapelets_to_extract
 
+                if isinstance(self.checkpoint, str):
+                    saved_files = {
+                        "shapelets": [tuple(i) for i in shapelets],
+                        "n_shapelets_extracted": n_shapelets_extracted,
+                        "_fit_time": (time.time() - start_time) + self._fit_time,
+                    }
+                    dump(saved_files, f"{self.checkpoint}_intermediate.run")
+
         self.shapelets = [
             (
                 s[0],
@@ -306,7 +337,9 @@ class RandomShapeletTransform(BaseTransformer):
         self.shapelets.sort(reverse=True, key=lambda s: (s[0], s[1], s[2], s[3], s[4]))
 
         to_keep = self._remove_identical_shapelets(List(self.shapelets))
-        self.shapelets = [n for (n, b) in zip(self.shapelets, to_keep) if b]
+        self.shapelets = [
+            n for (n, b) in zip(self.shapelets, to_keep) if b
+        ]  # self.shapelets = self.shapelets[to_keep]
 
         self._sorted_indicies = []
         for s in self.shapelets:
@@ -316,6 +349,19 @@ class RandomShapeletTransform(BaseTransformer):
                     sorted(range(s[1]), reverse=True, key=lambda j, sabs=sabs: sabs[j])
                 )
             )
+
+        if isinstance(self.checkpoint, str):
+            saved_files = {
+                "shapelets": self.shapelets,
+                "_sorted_indicies": self._sorted_indicies,
+                "n_shapelets_extracted": n_shapelets_extracted,
+                "_fit_time": (time.time() - start_time) + self._fit_time,
+            }
+            dump(saved_files, f"{self.checkpoint}_final.run")
+            os.remove(
+                f"{self.checkpoint}_intermediate.run"
+            )  # removing intermediate files when completed
+
         return self
 
     def _transform(self, X, y=None):
