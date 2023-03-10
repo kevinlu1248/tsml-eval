@@ -43,6 +43,8 @@ dependencies = [
     "requests",
     "gpustat",
     "scikit-fda",
+    "pyfftw",
+    "psutil",
 ]
 
 [project.optional-dependencies]
@@ -121,6 +123,4 @@ addopts = '''
     --showlocals
     --doctest-modules
     --numprocesses auto
-    --cov tsml_eval
-    --cov-report xml
 '''
