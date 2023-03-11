@@ -8,7 +8,10 @@ transform then builds (by default) a rotation forest classifier on the output.
 __author__ = ["TonyBagnall", "MatthewMiddlehurst", "DavidGuijoRubio"]
 __all__ = ["ShapeletTransformRegressor"]
 
+import os
+
 import numpy as np
+from joblib import dump, load
 from sklearn.model_selection import cross_val_predict
 from sklearn.utils.multiclass import type_of_target
 from sktime.base._base import _clone_estimator
@@ -224,6 +227,20 @@ class ShapeletTransformRegressor(BaseRegressor):
             checkpoint=self.checkpoint,
         )
 
+        if isinstance(self.checkpoint, str):
+            if os.path.isfile(f"{self.checkpoint}_X_t_final.run"):
+                saved_files = load(f"{self.checkpoint}_X_t_final.run")
+                X_t = saved_files["X_t"]
+
+            else:
+                X_t = self._transformer.fit_transform(X, y).to_numpy()
+                saved_files = {
+                    "X_t": X_t,
+                }
+                dump(saved_files, f"{self.checkpoint}_X_t_final.run")
+        else:
+            X_t = self._transformer.fit_transform(X, y).to_numpy()
+
         self._estimator = _clone_estimator(
             RotationForest() if self.estimator is None else self.estimator,
             self.random_state,
@@ -239,8 +256,6 @@ class ShapeletTransformRegressor(BaseRegressor):
         m = getattr(self._estimator, "time_limit_in_minutes", None)
         if m is not None and self.time_limit_in_minutes > 0:
             self._estimator.time_limit_in_minutes = self._classifier_limit_in_minutes
-
-        X_t = self._transformer.fit_transform(X, y).to_numpy()
 
         if isinstance(self.checkpoint, str):
             self._fit_time = getattr(self._transformer, "_fit_time", 0)
