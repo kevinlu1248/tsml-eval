@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Sep  2 09:20:49 2022.
+Random Dilated Shapelet transform regressor.
 
-@author: Antoine Guillaume.
+Ridge Regression is applied to the R_DST transform.
 """
+
+__author__ = ["AntoineGuillaume", "dguijo"]
+__all__ = ["R_DST_Ridge"]
+
+
 import convst
 import numpy as np
 from numba import set_num_threads

@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Sep  2 09:20:49 2022.
+Random Dilated Shapelet transform ensemble regressor.
 
-@author: Antoine Guillaume.
+Ensemble of 3 Ridge Regression (using 3 different representations) is applied to the
+R_DST transform.
 """
+
+__author__ = ["AntoineGuillaume", "dguijo"]
+__all__ = ["R_DST_Ensemble"]
 import numbers
 from functools import partial
 

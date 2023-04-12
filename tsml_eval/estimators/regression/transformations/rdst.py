@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Sep  2 09:20:49 2022.
+Random Dilated Shapelet transform.
 
-@author: Antoine Guillaume.
+A transformer from the time domain into the shapelet domain using random dilations.
 """
+
+__author__ = ["AntoineGuillaume"]
+__all__ = ["R_DST"]
+
 import warnings
 
 import convst
