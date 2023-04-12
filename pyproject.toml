@@ -108,6 +108,9 @@ per-file-ignores = [
     "tsml_eval/experiments/clustering_experiments.py:E402,T201",
     "tsml_eval/experiments/threaded_clustering_experiments.py:T201",
     "tsml_eval/experiments/distance_clustering_experiments.py:E402,T201",
+    "tsml_eval/estimators/regression/transformations/rdst.py:E402,B006",
+    "tsml_eval/estimators/regression/shapelet_based/rdstr.py:E402,B006",
+    "tsml_eval/estimators/regression/shapelet_based/rdstr_ensemble.py:E402,B006",
 ]
 
 [tool.nbqa.exclude]

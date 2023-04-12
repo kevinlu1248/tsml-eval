@@ -1,0 +1,532 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Sep  2 09:20:49 2022.
+
+@author: Antoine Guillaume.
+"""
+import numbers
+from functools import partial
+
+import convst
+import numpy as np
+import scipy.sparse as sp
+from joblib import Parallel
+from numba import set_num_threads
+from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin, is_classifier
+from sklearn.linear_model._base import _preprocess_data
+from sklearn.linear_model._ridge import (
+    Ridge,
+    _BaseRidgeCV,
+    _check_gcv_mode,
+    _IdentityRegressor,
+    _RidgeGCV,
+)
+from sklearn.metrics import check_scoring, make_scorer, mean_squared_error
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import check_scalar
+from sklearn.utils.extmath import safe_sparse_dot
+from sklearn.utils.fixes import delayed
+from sklearn.utils.validation import check_is_fitted, check_random_state
+
+convst.__USE_NUMBA_CACHE__ = False
+from convst.transformers import R_DST
+from convst.transformers._input_transformers import Derivate, Periodigram, Raw
+from convst.utils.checks_utils import (
+    check_array_1D,
+    check_is_boolean,
+    check_is_numeric,
+    check_n_jobs,
+)
+from convst.utils.dataset_utils import _custom_from_nested_to_3d_numpy
+
+
+class _CustomRidgeGCV(_RidgeGCV):
+    def fit(self, X, y):
+        X, y = self._validate_data(
+            X,
+            y,
+            accept_sparse=["csr", "csc", "coo"],
+            dtype=[np.float64],
+            multi_output=True,
+            y_numeric=True,
+        )
+
+        # alpha_per_target cannot be used in classifier mode. All subclasses
+        # of _RidgeGCV that are classifiers keep alpha_per_target at its
+        # default value: False, so the condition below should never happen.
+        assert not (self.is_clf and self.alpha_per_target)
+
+        self.alphas = np.asarray(self.alphas)
+
+        X, y, X_offset, y_offset, X_scale = _preprocess_data(
+            X,
+            y,
+            self.fit_intercept,
+            copy=self.copy_X,
+        )
+
+        gcv_mode = _check_gcv_mode(X, self.gcv_mode)
+
+        if gcv_mode == "eigen":
+            decompose = self._eigen_decompose_gram
+            solve = self._solve_eigen_gram
+        elif gcv_mode == "svd":
+            if sp.issparse(X):
+                decompose = self._eigen_decompose_covariance
+                solve = self._solve_eigen_covariance
+            else:
+                decompose = self._svd_decompose_design_matrix
+                solve = self._solve_svd_design_matrix
+
+        n_samples = X.shape[0]
+
+        sqrt_sw = np.ones(n_samples, dtype=X.dtype)
+
+        X_mean, *decomposition = decompose(X, y, sqrt_sw)
+
+        scorer = check_scoring(self, scoring=self.scoring, allow_none=True)
+        error = scorer is None
+
+        n_y = 1 if len(y.shape) == 1 else y.shape[1]
+        n_alphas = 1 if np.ndim(self.alphas) == 0 else len(self.alphas)
+
+        if self.store_cv_values:
+            self.cv_values_ = np.empty((n_samples * n_y, n_alphas), dtype=X.dtype)
+
+        best_coef, best_score, best_alpha = None, None, None
+
+        for i, alpha in enumerate(np.atleast_1d(self.alphas)):
+            G_inverse_diag, c = solve(float(alpha), y, sqrt_sw, X_mean, *decomposition)
+            if error:
+                squared_errors = (c / G_inverse_diag) ** 2
+                if self.alpha_per_target:
+                    alpha_score = -squared_errors.mean(axis=0)
+                else:
+                    alpha_score = -squared_errors.mean()
+                if self.store_cv_values:
+                    self.cv_values_[:, i] = squared_errors.ravel()
+            else:
+                predictions = y - (c / G_inverse_diag)
+                if self.store_cv_values:
+                    # added to destandarize the predictions.
+                    self.cv_values_[:, i] = predictions.ravel() / np.tile(
+                        sqrt_sw, n_y
+                    ) + np.repeat(y_offset, X.shape[0])
+                    # self.cv_values_[:, i] = predictions.ravel()
+
+                if not self.is_clf:
+                    identity_estimator = _IdentityRegressor()
+                    if self.alpha_per_target:
+                        alpha_score = np.array(
+                            [
+                                scorer(identity_estimator, predictions[:, j], y[:, j])
+                                for j in range(n_y)
+                            ]
+                        )
+                    else:
+                        alpha_score = scorer(
+                            identity_estimator, predictions.ravel(), y.ravel()
+                        )
+
+            # Keep track of the best model
+            if best_score is None:
+                # initialize
+                if self.alpha_per_target and n_y > 1:
+                    best_coef = c
+                    best_score = np.atleast_1d(alpha_score)
+                    best_alpha = np.full(n_y, alpha)
+                else:
+                    best_coef = c
+                    best_score = alpha_score
+                    best_alpha = alpha
+            else:
+                # update
+                if self.alpha_per_target and n_y > 1:
+                    to_update = alpha_score > best_score
+                    best_coef[:, to_update] = c[:, to_update]
+                    best_score[to_update] = alpha_score[to_update]
+                    best_alpha[to_update] = alpha
+                elif alpha_score > best_score:
+                    best_coef, best_score, best_alpha = c, alpha_score, alpha
+
+        self.alpha_ = best_alpha
+        self.best_score_ = best_score
+        self.dual_coef_ = best_coef
+        self.coef_ = safe_sparse_dot(self.dual_coef_.T, X)
+
+        if sp.issparse(X):
+            X_offset = X_mean * X_scale
+        else:
+            X_offset += X_mean * X_scale
+        self._set_intercept(X_offset, y_offset, X_scale)
+
+        if self.store_cv_values:
+            if len(y.shape) == 1:
+                cv_values_shape = n_samples, n_alphas
+            else:
+                cv_values_shape = n_samples, n_y, n_alphas
+            self.cv_values_ = self.cv_values_.reshape(cv_values_shape)
+
+        return self
+
+
+class _CustomBaseRidgeCV(_BaseRidgeCV):
+    def fit(self, X, y):
+        cv = self.cv
+
+        check_scalar_alpha = partial(
+            check_scalar,
+            target_type=numbers.Real,
+            min_val=0.0,
+            include_boundaries="neither",
+        )
+
+        if isinstance(self.alphas, (np.ndarray, list, tuple)):
+            n_alphas = 1 if np.ndim(self.alphas) == 0 else len(self.alphas)
+            if n_alphas != 1:
+                for index, alpha in enumerate(self.alphas):
+                    alpha = check_scalar_alpha(alpha, f"alphas[{index}]")
+            else:
+                self.alphas[0] = check_scalar_alpha(self.alphas[0], "alphas")
+        else:
+            # check for single non-iterable item
+            self.alphas = check_scalar_alpha(self.alphas, "alphas")
+
+        alphas = np.asarray(self.alphas)
+
+        if cv is None:
+            estimator = _CustomRidgeGCV(
+                alphas,
+                fit_intercept=self.fit_intercept,
+                normalize=self.normalize,
+                scoring=self.scoring,
+                gcv_mode=self.gcv_mode,
+                store_cv_values=self.store_cv_values,
+                is_clf=is_classifier(self),
+                alpha_per_target=self.alpha_per_target,
+            )
+            estimator.fit(X, y)
+            self.alpha_ = estimator.alpha_
+            self.best_score_ = estimator.best_score_
+            if self.store_cv_values:
+                self.cv_values_ = estimator.cv_values_
+        else:
+            if self.store_cv_values:
+                raise ValueError("cv!=None and store_cv_values=True are incompatible")
+            if self.alpha_per_target:
+                raise ValueError("cv!=None and alpha_per_target=True are incompatible")
+
+            parameters = {"alpha": alphas}
+            solver = "sparse_cg" if sp.issparse(X) else "auto"
+            model = Ridge
+            gs = GridSearchCV(
+                model(
+                    fit_intercept=self.fit_intercept,
+                    normalize=self.normalize,
+                    solver=solver,
+                ),
+                parameters,
+                cv=cv,
+                scoring=self.scoring,
+            )
+            gs.fit(X, y)
+            estimator = gs.best_estimator_
+            self.alpha_ = gs.best_estimator_.alpha
+            self.best_score_ = gs.best_score_
+
+        self.coef_ = estimator.coef_
+        self.intercept_ = estimator.intercept_
+        self.n_features_in_ = estimator.n_features_in_
+        if hasattr(estimator, "feature_names_in_"):
+            self.feature_names_in_ = estimator.feature_names_in_
+
+        return self
+
+
+class CustomRidgeCV(MultiOutputMixin, RegressorMixin, _CustomBaseRidgeCV):
+    """Empty class for de-standarising the cv values of ridgeCV."""
+
+    pass
+
+
+class _internalRidgeCV(CustomRidgeCV):
+    def __init__(self, **kwargs):
+        super().__init__(
+            store_cv_values=True,
+            scoring=make_scorer(mean_squared_error, greater_is_better=False),
+            **kwargs,
+        )
+
+    def fit(self, X, y):
+        self.scaler = StandardScaler(with_mean=True).fit(X)
+        return super().fit(self.scaler.transform(X), y)
+
+    def predict(self, X):
+        return super().predict(self.scaler.transform(X))
+
+    def get_loocv_train_mse(self, y_train):
+        if self.store_cv_values:
+            alpha_idx = np.where(self.alphas == self.alpha_)[0]
+            cv_vals = self.cv_values_[:, alpha_idx]
+
+            return mean_squared_error(cv_vals, y_train)
+        else:
+            raise ValueError(
+                "LOOCV training MSE is only available with store_cv_values to True"
+            )
+
+
+def _parallel_fit(X, y, model):
+    return model.fit(X, y)
+
+
+def _parallel_predict(X, model, w):
+    return model.predict(X) * w
+
+
+class R_DST_Ensemble(BaseEstimator, RegressorMixin):
+    """
+    Class for the ensemble of R_DST.
+
+    Parameters
+    ----------
+    transform_type : str, optional
+        Type of transformer to use. Based on the characteristics of the input
+        time series, different class of transformer must be used, for example
+        the tranformer for univariate series is not the same as for
+        multivariate ones for run-time optimization reasons.
+        The default is 'auto', which automatically select the transformer based
+        on the data passed in the fit method.
+    phase_invariance : bool, optional
+        Wheter to use phase invariance for shapelet sampling and distance
+        computation. The default is False.
+    distance : str, optional
+        The distance function to use whe computing distances between shapelets
+        and time series. Choose between 'euclidean','manhattan' and 'squared_euclidean'.
+        The default is 'manhattan'.
+    alpha : float, optional
+        The alpha similarity parameter, the higher the value, the lower the
+        allowed number of common indexes with previously sampled shapelets
+        when sampling a new one with similar parameters. It can cause the
+        number of sampled shapelets to be lower than n_shapelets if the
+        whole search space has been covered. The default is 0.5.
+    normalize_output : boolean, optional
+        Wheter to normalize the argmin and shapelet occurrence feature by the
+        length of the series from which it was extracted. This is mostly useful
+        for variable length time series. The default is False.
+    n_samples : float, optional
+        Proportion (in ]0,1]) of samples to consider for the shapelet
+        extraction. The default is None, meaning that all samples are used.
+    n_shapelets : int, optional
+        The maximum number of shapelet to be sampled. The default is 10_000.
+    shapelet_lengths : array, optional
+        The set of possible length for shapelets. The values can be integers
+        to specify an absolute length, or a float, to specify a length relative
+        to the input time series length. The default is [11].
+    shapelet_lengths_bounds : array, optional
+        An 1D array with two elements containing the min and max possible
+        length for shapelet candidate, can be int or float. The default is
+        None, meaning that shapelet_lengths parameter is used.
+    lengths_bounds_reduction : float, optional
+        A float in ]0,1], quantifying the proportion of lengths to explore
+        between the min and max bounds of shapelet_lengths_bounds. The default
+        is 0.5. For example, with bounds as [4,10], and a reduction of 0.5,
+        only [4,6,8,10] will be considered as possible lengths.
+    prime_dilations : bool, optional
+        If True, only dilation with prime values will be considered for
+        shapelet candidates. This will greatly speed-up the algorithm
+        for long time series and/or short shapelet length, possibly at the cost
+        of some accuracy.
+    proba_norm : float, optional
+        The proportion of shapelets that will use a normalized distance
+        function, which induce scale invariance. The default is 0.8.
+    percentiles : array, optional
+        The two perceniles used to select the lambda threshold used to compute
+        the Shapelet Occurrence feature. The default is [5,10].
+    n_jobs : int, optional
+        The number of threads used to sample and compute the distance vectors.
+        The default is 1, -1 means all available cores.
+    random_state : object, optional
+        The seed for the random state. The default is None.
+    max_channels : int, optional
+        The maximum number of feature possibly considered by a multivariate
+        shapelet. The default is None, meaning max_chanels=n_features.
+    min_len : int, optional
+        The minimum length of an input time series for variable length input.
+        The default is None, meaning min_len=min(n_timestamps) on the training data.
+        This can cause error if a shorter serie sis present in the test set.
+    fit_intercept : bool, optional
+         If True, the intercept term will be fitted during the ridge regression.
+         The default is True.
+    alphas : array, optional
+         Array of alpha values to try which influence regularization strength,
+         must be a positive float. The default is np.logspace(-4,4,20).
+    """
+
+    def __init__(
+        self,
+        n_shapelets_per_estimator=10000,
+        shapelet_lengths=[11],
+        shapelet_lengths_bounds=None,
+        lengths_bounds_reduction=0.5,
+        prime_dilations=False,
+        n_samples=None,
+        n_jobs=1,
+        prefer=None,
+        require="sharedmem",
+        random_state=None,
+        shp_alpha=0.5,
+        proba_norm=[0.8, 0.8, 0.8],
+        phase_invariance=False,
+        input_transformers=None,
+        transform_type="auto",
+        distance="manhattan",
+        normalize_output=False,
+        percentiles=[5, 10],
+        max_channels=None,
+        min_len=None,
+        fit_intercept=True,
+        alphas_ridge=None,
+    ):
+        self.transform_type = transform_type
+        self.phase_invariance = check_is_boolean(phase_invariance)
+        self.distance = distance
+        self.normalize_output = check_is_boolean(normalize_output)
+        self.n_samples = (
+            check_is_numeric(n_samples) if n_samples is not None else n_samples
+        )
+        self.shapelet_lengths_bounds = shapelet_lengths_bounds
+        self.prime_dilations = check_is_boolean(prime_dilations)
+        self.percentiles = percentiles
+        self.random_state = check_random_state(random_state)
+        self.max_channels = max_channels
+        self.min_len = min_len
+        self.lengths_bounds_reduction = lengths_bounds_reduction
+        self.n_shapelets_per_estimator = check_is_numeric(n_shapelets_per_estimator)
+        self.shapelet_lengths = check_array_1D(shapelet_lengths)
+        self.n_jobs = n_jobs
+
+        self.prefer = prefer
+        self.require = require
+        self.shp_alpha = check_is_numeric(shp_alpha)
+        self.proba_norm = check_array_1D(proba_norm)
+        self.alphas_ridge = alphas_ridge
+        if self.alphas_ridge is None:
+            self.alphas_ridge = list(np.logspace(-3, 3, 10))
+        self.fit_intercept = fit_intercept
+
+        if input_transformers is None:
+            self.input_transformers = [Raw(), Derivate(), Periodigram()]
+        else:
+            self.input_transformers = input_transformers
+
+        if len(self.input_transformers) != len(self.proba_norm):
+            raise ValueError(
+                "The length of proba norm array should be equal to the"
+                " length of the input transformers array, but found "
+                "{} for proba_norm and {} for input transformers".format(
+                    len(self.proba_norm), len(self.input_transformers)
+                )
+            )
+
+    def _more_tags(self):
+        return {
+            "capability:variable_length": True,
+            "capability:univariate": True,
+            "capability:multivariate": True,
+        }
+
+    def _manage_n_jobs(self):
+        total_jobs = check_n_jobs(self.n_jobs)
+        self.n_jobs = min(len(self.input_transformers), total_jobs)
+        self.n_jobs_rdst = max(1, total_jobs // self.n_jobs)
+
+    def fit(self, X, y):
+        """
+        Fit method.
+
+        Random shapelets are generated using the parameters supplied during
+        initialisation. Then, input time series are transformed using R_DST before
+        regression with a Ridge Regressor.
+
+        Parameters
+        ----------
+        X : array, shape=(n_samples, n_features, n_timestamps)
+            Input time series.
+
+        y : array, shape=(n_samples)
+            Output of the input time series.
+        """
+        X = _custom_from_nested_to_3d_numpy(X)
+        self._manage_n_jobs()
+        set_num_threads(self.n_jobs_rdst)
+        models = Parallel(n_jobs=self.n_jobs, prefer=self.prefer, require=self.require)(
+            delayed(_parallel_fit)(
+                X,
+                y,
+                make_pipeline(
+                    self.input_transformers[i],
+                    R_DST(
+                        n_shapelets=self.n_shapelets_per_estimator,
+                        alpha=self.shp_alpha,
+                        n_samples=self.n_samples,
+                        proba_norm=self.proba_norm[i],
+                        n_jobs=False,
+                        shapelet_lengths=self.shapelet_lengths,
+                        phase_invariance=self.phase_invariance,
+                        prime_dilations=self.prime_dilations,
+                        shapelet_lengths_bounds=self.shapelet_lengths_bounds,
+                        lengths_bounds_reduction=self.lengths_bounds_reduction,
+                        transform_type=self.transform_type,
+                        percentiles=self.percentiles,
+                        min_len=self.min_len,
+                        max_channels=self.max_channels,
+                        random_state=self.random_state,
+                    ),
+                    _internalRidgeCV(
+                        alphas=self.alphas_ridge,
+                        fit_intercept=self.fit_intercept,
+                    ),
+                ),
+            )
+            for i in range(len(self.input_transformers))
+        )
+
+        self.models = models
+        self.model_weights = [
+            1 - model["_internalridgecv"].get_loocv_train_mse(y) for model in models
+        ]
+        return self
+
+    def predict(self, X):
+        """
+        Compute the predicted output por time series in X.
+
+        Transform the input time series with R_DST and predict their output
+        using the fitted Ridge Regressor.
+
+        Parameters
+        ----------
+        X : array, shape=(n_samples, n_features, n_timestamps)
+            Input time series.
+
+        Returns
+        -------
+        array, shape=(n_samples)
+            Predicted output for each input time series
+
+        """
+        X = _custom_from_nested_to_3d_numpy(X)
+        check_is_fitted(self, ["model_weights"])
+        preds = Parallel(n_jobs=self.n_jobs, prefer=self.prefer, require=self.require)(
+            delayed(_parallel_predict)(
+                X, self.models[i], self.model_weights[i] / sum(self.model_weights)
+            )
+            for i in range(len(self.model_weights))
+        )
+        # n_samples, n_models
+        preds = np.asarray(preds).sum(axis=0)
+
+        return preds

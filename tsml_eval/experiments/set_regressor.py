@@ -267,6 +267,17 @@ def set_regressor(
             save_transformed_data=build_train_file,
             n_jobs=n_jobs,
         )
+
+    elif r == "rdstr":
+        from tsml_eval.estimators.regression.shapelet_based import R_DST_Ridge
+
+        return R_DST_Ridge(random_state=random_state)
+
+    elif r == "rdstr_ensemble":
+        from tsml_eval.estimators.regression.shapelet_based import R_DST_Ensemble
+
+        return R_DST_Ensemble(random_state=random_state)
+
     elif r == "tde":
         from tsml_eval.estimators.regression.dictionary_based import (
             TemporalDictionaryEnsemble,
