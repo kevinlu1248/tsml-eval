@@ -8,7 +8,7 @@ import os
 import pytest
 
 from tsml_eval.experiments import set_clusterer
-from tsml_eval.experiments.clustering_experiments import run_experiment
+from tsml_eval.experiments.clustering.clustering_experiments import run_experiment
 from tsml_eval.utils.test_utils import EXEMPT_ESTIMATOR_NAMES, _check_set_method
 from tsml_eval.utils.tests.test_results_writing import _check_clustering_file_format
 

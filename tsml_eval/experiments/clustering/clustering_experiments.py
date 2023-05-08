@@ -86,8 +86,8 @@ def run_experiment(args, overwrite=False):
         # These are example parameters, change as required for local runs
         # Do not include paths to your local directories here in PRs
         # If threading is required, see the threaded version of this file
-        data_dir = "../"
-        results_dir = "../"
+        data_dir = "../../"
+        results_dir = "../../"
         clusterer_name = "DrCIF"
         dataset = "Covid3Months"
         resample = 0
