@@ -525,22 +525,19 @@ if __name__ == "__main__":
         dataset = sys.argv[4]
         resample = int(sys.argv[5])
         distance = sys.argv[6]
-        if len(sys.argv) > 7:
-            train_fold = sys.argv[7].lower() == "true"
-        else:
-            train_fold = False
-        if len(sys.argv) > 9:
+        init = sys.argv[7]
+        if len(sys.argv) > 8:
             normalise = sys.argv[8].lower() == "true"
-        if len(sys.argv) > 10:
+        if len(sys.argv) > 9:
             tune = sys.argv[9].lower() == "true"
     else:  # Local run
         print(" Local Run")  # noqa
         data_dir = "/home/chris/Documents/Datasets/Univariate_ts/"
         clusterer = "pam"
         dataset = "Chinatown"
+        init = "random"
         results_dir = "/home/chris/Documents/Results/temp/"
         resample = 0
-        train_fold = True
         distance = "dtw"
         normalise = True
         tune = False
@@ -579,7 +576,8 @@ if __name__ == "__main__":
         n_clusters=len(set(train_Y)),
         metric=distance,
         metric_params=distance_params,
-        model=clusterer
+        model=clusterer,
+        init=init,
     )
     print(f" Window parameters for {distance_params}")
     run_clustering_experiment(

@@ -7,10 +7,15 @@ import kmedoids
 class KmedoidsWrapper(BaseClusterer):
 
     def __init__(
-            self, n_clusters: int, metric: str, metric_params: dict = None, model="pam"
+            self,
+            n_clusters: int,
+            metric: str,
+            metric_params: dict = None,
+            model: str = "pam",
+            init: str = "random"
     ):
         self.metric = metric
-
+        self.init = init
         if metric_params is None:
             metric_params = {}
         self.metric_params = metric_params
@@ -37,7 +42,8 @@ class KmedoidsWrapper(BaseClusterer):
         model = kmedoids.KMedoids(
             n_clusters=self.n_clusters,
             metric="precomputed",
-            method=self.model
+            method=self.model,
+            init=self.init,
         )
         model.fit(pairwise)
         self.cluster_centers_ = X[model.medoid_indices_]
