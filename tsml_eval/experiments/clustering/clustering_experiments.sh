@@ -61,8 +61,8 @@ while read dataset; do
 #  , fasterpam, pamsil, pammedsil, alternate
 for clusterer in pam
 do
-# Done: squared
-  for distance in dtw, ddtw, wdtw, wddtw
+# Done: squared dtw, ddtw, wdtw, wddtw
+  for distance in lcss, erp, edr, msm, twe
   do
     for init in random
     do
