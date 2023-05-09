@@ -58,7 +58,7 @@ predefined_folds="false"
 # See set_clusterer for aliases
 count=0
 while read dataset; do
-for clusterer in fasterpam
+for clusterer in fasterpam pam
 do
   for distance in squared dtw ddtw wdtw wddtw lcss erp edr msm twe
   do
@@ -87,7 +87,7 @@ array_jobs=""
 for (( i=start_fold-1; i<max_folds; i++ ))
 do
     if [ -f "${results_dir}${clusterer}/Predictions/${dataset}/trainResample${i}.csv" ]; then
-        if [ "${generate_test_files}" == "true" ] && ! [ -f "${results_dir}${clusterer}/Predictions/${dataset}/testResample${i}.csv" ]; then
+        if [ "${generate_test_files}" == "true" ] && ! [ -f "${results_dir}${clusterer}/Predictions/${clusterer}/${dataset}/testResample${i}.csv" ]; then
             array_jobs="${array_jobs}${array_jobs:+,}$((i + 1))"
         fi
     else
