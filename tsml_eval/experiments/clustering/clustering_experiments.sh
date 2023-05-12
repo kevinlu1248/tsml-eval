@@ -60,7 +60,7 @@ count=0
 while read dataset; do
 for clusterer in fasterpam pam fastermsc alternate
 do
-  for distance in squared dtw ddtw wdtw wddtw lcss erp edr msm twe
+  for distance in squared
   do
     for init in random
     do
@@ -95,8 +95,9 @@ do
     fi
 done
 
-if [ "${array_jobs}" != "" ]; then
+curr_result_dir="${results_dir}${clusterer}/"
 
+if [ "${array_jobs}" != "" ]; then
 # This creates the scrip to run the job based on the info above
 echo "#!/bin/bash
 #SBATCH --qos=ht
@@ -117,7 +118,7 @@ source activate $env_name
 
 # Input args to the default clustering_experiments are in main method of
 # https://github.com/time-series-machine-learning/tsml-eval/blob/main/tsml_eval/experiments/clustering_experiments.py
-python -u ${script_file_path} ${data_dir} ${results_dir} ${clusterer} ${dataset} \$((\$SLURM_ARRAY_TASK_ID - 1)) ${distance} ${init}"  > generatedFile.sub
+python -u ${script_file_path} ${data_dir} ${curr_result_dir} ${clusterer} ${dataset} \$((\$SLURM_ARRAY_TASK_ID - 1)) ${distance} ${init}"  > generatedFile.sub
 
 echo ${count} ${clusterer}/${dataset}
 

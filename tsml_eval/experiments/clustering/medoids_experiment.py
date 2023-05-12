@@ -533,7 +533,7 @@ if __name__ == "__main__":
     else:  # Local run
         print(" Local Run")  # noqa
         data_dir = "/home/chris/Documents/Datasets/Univariate_ts/"
-        clusterer = "pam"
+        clusterer = "alternate"
         dataset = "Chinatown"
         init = "random"
         results_dir = "/home/chris/Documents/Results/temp/"
