@@ -60,7 +60,7 @@ count=0
 while read dataset; do
 for clusterer in fasterpam pam fastermsc alternate
 do
-  for distance in squared
+  for distance in dtw ddtw wdtw wddtw lcss erp edr msm twe
   do
     for init in random
     do
