@@ -120,7 +120,7 @@ class KmedoidsWrapper(BaseClusterer):
                 best_medoids = medoids
 
         self.cluster_centers_ = X[best_medoids]
-        self.inertia_ = model.inertia_
+        self.inertia_ = min_cost
         return pairwise[best_medoids].argmin(axis=1)
 
     def _fit_bandit_pam(self, X: np.ndarray):
@@ -135,7 +135,6 @@ class KmedoidsWrapper(BaseClusterer):
         self.inertia_ = model.inertia_
         return model.labels_
 
-#
 # from aeon.datasets import load_gunpoint
 #
 # if __name__ == "__main__":
@@ -149,4 +148,6 @@ class KmedoidsWrapper(BaseClusterer):
 #     )
 #     train_res = model.fit(train_X)
 #     test_res = model.predict(test_X)
+#     # print(model.cluster_centers_)
+#     print(model.inertia_)
 #     joe = ""
