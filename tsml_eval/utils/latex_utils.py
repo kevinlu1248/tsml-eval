@@ -137,7 +137,3 @@ if __name__ == '__main__':
     print(string_ver)
 
     print(max(arr))
-
-
-
-    # _latex_str_to_pandas(latex_str, bold_by_row=True, bold_max_value=True, ignore_row_first_value=True)
