@@ -55,10 +55,10 @@ generate_test_files="true"
 predefined_folds="false"
 
 # List valid clusterers e.g KMeans KMedoids
+# done fasterpam pam fastermsc alternate
 # See set_clusterer for aliases
 count=0
 while read dataset; do
-# done fasterpam pam fastermsc alternate
 for clusterer in pamsil pammedsil
 do
   for distance in squared dtw ddtw wdtw wddtw lcss erp edr msm twe
