@@ -6,7 +6,11 @@ from aeon.clustering.base import BaseClusterer, TimeSeriesInstances
 import random
 import kmedoids
 from kmedoids import pam_build
-from banditpam import KMedoids as BanditPAM
+from aeon.transformations.panel.tsfresh import TSFreshFeatureExtractor
+from aeon.transformations.panel.catch22 import Catch22
+from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+# from sklearn.decomposition import PCA
+# from umap import UMAP
 
 
 kmedoids_package = ["pam", "fasterpam", "fastpam1", "pam", "fastmsc", "fastermsc",
@@ -21,7 +25,9 @@ class KmedoidsWrapper(BaseClusterer):
             metric: str,
             metric_params: dict = None,
             model: str = "pam",
-            init: str = "random"
+            init: str = "random",
+            fresh_prince_params: dict = None,
+            catch_22_params: dict = None,
     ):
         self.metric = metric
         self.init = init
@@ -29,10 +35,32 @@ class KmedoidsWrapper(BaseClusterer):
             metric_params = {}
         self.metric_params = metric_params
 
+        if fresh_prince_params is None:
+            fresh_prince_params = {
+                "default_fc_parameters": "comprehensive",
+                "n_jobs": 1,
+                "chunksize": None,
+                "disable_progressbar": True,
+                "show_warnings": False,
+            }
+        self.fresh_prince_params = fresh_prince_params
+
+        if catch_22_params is None:
+            catch_22_params = {
+                "outlier_norm": False,
+                "replace_nans": True,
+            }
+        self.catch_22_params = catch_22_params
+
         self.model = model
         self.cluster_centers_ = None
         self.labels_ = None
         self.inertia_ = None
+
+        self._tsfresh = None
+        self._catch22 = None
+        self._pca = None
+        self._umap = None
 
         super(KmedoidsWrapper, self).__init__(n_clusters=n_clusters)
 
@@ -40,10 +68,19 @@ class KmedoidsWrapper(BaseClusterer):
         return -self.inertia_
 
     def _predict(self, X: TimeSeriesInstances, y=None) -> np.ndarray:
-        pairwise = pairwise_distance(
-            X, self.cluster_centers_, metric=self.metric, **self.metric_params
-        )
-        return pairwise.argmin(axis=1)
+        if self.model == "freshprince-pam":
+            return self._predict_freshprince_pam(X)
+        elif self.model == "catch22-pam":
+            return self._predict_catch22_pam(X)
+        # elif self.model == "pca-pam":
+        #     return self._predict_pca_pam(X)
+        # elif self.model == "umap-pam":
+        #     return self._predict_umap_pam(X)
+        else:
+            pairwise = pairwise_distance(
+                X, self.cluster_centers_, metric=self.metric, **self.metric_params
+            )
+            return pairwise.argmin(axis=1)
 
     def _fit(self, X: TimeSeriesInstances, y=None) -> np.ndarray:
         if self.model in kmedoids_package:
@@ -52,12 +89,14 @@ class KmedoidsWrapper(BaseClusterer):
             return self._fit_clara(X)
         elif self.model == "clarans":
             return self._fit_clarans(X)
-        elif self.model == "banditpam":
-            raise NotImplementedError("banditpam not implemented")
-        elif self.model == "features":
-            raise NotImplementedError("features not implemented")
-        elif self.model == "dimreduction":
-            raise NotImplementedError("dimreduction not implemented")
+        elif self.model == "freshprince-pam":
+            self._fit_freshprince_pam(X)
+        elif self.model == "catch22-pam":
+            self._fit_catch22_pam(X)
+        # elif self.model == "pca-pam":
+        #     self._fit_pca_pam(X)
+        # elif self.model == "umap-pam":
+        #     self._fit_umap_pam(X)
         else:
             raise ValueError("model invalid")
 
@@ -123,19 +162,87 @@ class KmedoidsWrapper(BaseClusterer):
         self.inertia_ = min_cost
         return pairwise[best_medoids].argmin(axis=1)
 
-    def _fit_bandit_pam(self, X: np.ndarray):
-        model = BanditPAM(
+    def _fit_freshprince_pam(self, X: np.ndarray):
+        self._tsfresh = TSFreshFeatureExtractor(
+            **self.fresh_prince_params
+        )
+        X_t = self._tsfresh.fit_transform(X).to_numpy()
+        model = kmedoids.KMedoids(
             n_clusters=self.n_clusters,
-            metric=self.metric,
-            method=self.model,
+            metric="euclidean",
+            method="pam",
             init=self.init,
         )
-        model.fit(X)
-        self.cluster_centers_ = X[model.medoid_indices_]
+        model.fit(X_t)
+        self.cluster_centers_ = self._tsfresh.fit_transform(X[model.medoid_indices_]).to_numpy()
         self.inertia_ = model.inertia_
         return model.labels_
 
+    def _fit_catch22_pam(self, X: np.ndarray):
+        self._catch22 = Catch22(**self.catch_22_params)
+        X_t = self._catch22.fit_transform(X).to_numpy()
+        model = kmedoids.KMedoids(
+            n_clusters=self.n_clusters,
+            metric="euclidean",
+            method="pam",
+            init=self.init,
+        )
+        model.fit(X_t)
+        self.cluster_centers_ = self._catch22.fit_transform(X[model.medoid_indices_]).to_numpy()
+        self.inertia_ = model.inertia_
+        return model.labels_
+
+    # def _fit_pca_pam(self, X: np.ndarray):
+    #     self._pca = PCA()
+    #     X_t = self._pca.fit_transform(X)
+    #     model = kmedoids.KMedoids(
+    #         n_clusters=self.n_clusters,
+    #         metric="euclidean",
+    #         method="pam",
+    #         init=self.init,
+    #     )
+    #     model.fit(X_t)
+    #     self.cluster_centers_ = self._pca.fit_transform(X[model.medoid_indices_])
+    #     self.inertia_ = model.inertia_
+    #     return model.labels_
+    #
+    # def _fit_umap_pam(self, X: np.ndarray):
+    #     self._umap = UMAP()
+    #     X_t = self._umap.fit_transform(X)
+    #     model = kmedoids.KMedoids(
+    #         n_clusters=self.n_clusters,
+    #         metric="euclidean",
+    #         method="pam",
+    #         init=self.init,
+    #     )
+    #     model.fit(X_t)
+    #     self.cluster_centers_ = self._umap.fit_transform(X[model.medoid_indices_])
+    #     self.inertia_ = model.inertia_
+    #     return model.labels_
+
+    def _predict_freshprince_pam(self, X: np.ndarray):
+        X_t = self._tsfresh.fit_transform(X).to_numpy()
+        pairwise = sklearn_pairwise_distances(X_t, self.cluster_centers_, metric="euclidean")
+        return pairwise.argmin(axis=1)
+
+    def _predict_catch22_pam(self, X: np.ndarray):
+        X_t = self._catch22.fit_transform(X).to_numpy()
+        pairwise = sklearn_pairwise_distances(X_t, self.cluster_centers_, metric="euclidean")
+        return pairwise.argmin(axis=1)
+
+    # def _predict_pca_pam(self, X: np.ndarray):
+    #     X_t = self._pca.transform(X)
+    #     pairwise = sklearn_pairwise_distances(X_t, self.cluster_centers_, metric="euclidean")
+    #     return pairwise.argmin(axis=1)
+    #
+    # def _predict_umap_pam(self, X: np.ndarray):
+    #     X_t = self._umap.transform(X)
+    #     pairwise = sklearn_pairwise_distances(X_t, self.cluster_centers_, metric="euclidean")
+    #     return pairwise.argmin(axis=1)
+
+
 # from aeon.datasets import load_gunpoint
+# from sklearn.metrics import rand_score
 #
 # if __name__ == "__main__":
 #     train_X, train_y = load_gunpoint(return_X_y=True, split="train")
@@ -143,11 +250,11 @@ class KmedoidsWrapper(BaseClusterer):
 #     model = KmedoidsWrapper(
 #         n_clusters=len(set(train_y)),
 #         metric="squared",
-#         model="clarans",
+#         model="pam",
 #         init="random"
 #     )
 #     train_res = model.fit(train_X)
 #     test_res = model.predict(test_X)
-#     # print(model.cluster_centers_)
-#     print(model.inertia_)
-#     joe = ""
+#     print("test rand index", rand_score(test_y, test_res))
+
+# need to install: tsfresh kmedoids pycatch22
