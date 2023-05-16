@@ -58,9 +58,10 @@ predefined_folds="false"
 # See set_clusterer for aliases
 count=0
 while read dataset; do
-for clusterer in fasterpam pam fastermsc alternate
+# done fasterpam pam fastermsc alternate
+for clusterer in pamsil pammedsil
 do
-  for distance in dtw ddtw wdtw wddtw lcss erp edr msm twe
+  for distance in squared dtw ddtw wdtw wddtw lcss erp edr msm twe
   do
     for init in random
     do
