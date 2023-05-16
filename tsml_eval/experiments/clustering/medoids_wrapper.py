@@ -247,14 +247,16 @@ class KmedoidsWrapper(BaseClusterer):
 # if __name__ == "__main__":
 #     train_X, train_y = load_gunpoint(return_X_y=True, split="train")
 #     test_X, test_y = load_gunpoint(return_X_y=True, split="test")
-#     model = KmedoidsWrapper(
-#         n_clusters=len(set(train_y)),
-#         metric="squared",
-#         model="pam",
-#         init="random"
-#     )
-#     train_res = model.fit(train_X)
-#     test_res = model.predict(test_X)
-#     print("test rand index", rand_score(test_y, test_res))
+#     test_vals = ["pamsil", "pammedsil", "clara", "clarans", "freshprince-pam", "catch22-pam"]
+#     for model in test_vals:
+#         model = KmedoidsWrapper(
+#             n_clusters=len(set(train_y)),
+#             metric="squared",
+#             model=model,
+#             init="random"
+#         )
+#         train_res = model.fit(train_X)
+#         test_res = model.predict(test_X)
+#         print(f"test {model.model} rand index", rand_score(test_y, test_res))
 
 # need to install: tsfresh kmedoids pycatch22
