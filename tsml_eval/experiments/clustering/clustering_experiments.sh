@@ -38,8 +38,8 @@ datasets="/gpfs/home/ajb/DataSetLists/TSC_112_2019.txt"
 local_path="/gpfs/home/$username/"
 
 # Results and output file write location. Change these to reflect your own file structure
-results_dir=$local_path"test_output/medoids-experiment/"
-out_dir=$local_path"test_output/medoids-experiment/output/"
+results_dir=$local_path"results/medoids-experiment/"
+out_dir=$local_path"results/medoids-experiment/output/"
 
 # The python script we are running
 script_file_path=$local_path"code/tsml-eval/tsml_eval/experiments/clustering/medoids_experiment.py"
