@@ -59,7 +59,7 @@ predefined_folds="false"
 # See set_clusterer for aliases
 count=0
 while read dataset; do
-for clusterer in pamsil pammedsil clara clarans freshprince-pam catch22-pam
+for clusterer in clara clarans
 do
   for distance in squared dtw ddtw wdtw wddtw lcss erp edr msm twe
   do
