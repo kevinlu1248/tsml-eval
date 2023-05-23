@@ -35,7 +35,7 @@ classifiers = [
 dependencies = [
     "aeon@git+https://github.com/aeon-toolkit/aeon#egg=dba-fixes",
     "scikit-learn>=1.0.2,<=1.2.2",
-    "tsml==0.0.6",
+    "tsml==0.0.7",
     "gpustat",
     "convst>=0.2.4,<=0.2.7",
     "wildboar>=1.1.0",
