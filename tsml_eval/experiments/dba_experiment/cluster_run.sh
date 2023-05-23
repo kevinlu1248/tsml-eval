@@ -7,7 +7,7 @@
 # While reading is fine, please dont write anything to the default directories in this script
 
 # Start and end for resamples
-max_folds=30
+max_folds=2
 start_fold=1
 
 # To avoid dumping 1000s of jobs in the queue we have a higher level queue
@@ -107,7 +107,7 @@ echo "#!/bin/bash
 
 . /etc/profile
 
-module add python/anaconda/2019.10/3.7
+module add python/anaconda/2020.11/3.8
 source activate $env_name
 
 # Input args to the default clustering_experiments are in main method of
