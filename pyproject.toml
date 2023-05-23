@@ -33,7 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "aeon==0.1.0",
+    "aeon@git+https://github.com/aeon-toolkit/aeon#egg=dba-fixes",
     "scikit-learn>=1.0.2,<=1.2.2",
     "tsml==0.0.7",
     "gpustat",
