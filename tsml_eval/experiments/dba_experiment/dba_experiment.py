@@ -24,7 +24,7 @@ from sklearn.metrics import davies_bouldin_score
 from aeon.clustering.k_means import TimeSeriesKMeans
 from aeon.clustering.k_medoids import TimeSeriesKMedoids
 from aeon.clustering.partitioning import TimeSeriesLloyds
-from sktime.datasets import load_from_tsfile as load_ts
+from aeon.datasets import load_from_tsfile as load_ts
 from aeon.datasets import write_results_to_uea_format
 from aeon.utils.sampling import stratified_resample
 
@@ -549,12 +549,10 @@ if __name__ == "__main__":
             f"tune window = {tune} results path = {results_dir}"
         )  # noqa
 
-    train_X, train_Y = load_ts(
-        f"{data_dir}/{dataset}/{dataset}_TRAIN.ts", return_data_type="numpy2d"
-    )
-    test_X, test_Y = load_ts(
-        f"{data_dir}/{dataset}/{dataset}_TEST.ts", return_data_type="numpy2d"
-    )
+    train_X, train_Y = load_ts(f"{data_dir}/{dataset}/{dataset}_TRAIN.ts")
+    test_X, test_Y = load_ts(f"{data_dir}/{dataset}/{dataset}_TEST.ts")
+    test_X = test_X.squeeze()
+    train_X = train_X.squeeze()
 
     distance_params = get_distance_defaults(train_X, distance)
     if normalise:
