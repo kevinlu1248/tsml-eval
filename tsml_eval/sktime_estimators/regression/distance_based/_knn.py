@@ -5,10 +5,11 @@ __author__ = ["TonyBagnall", "GuiArcencio", "dguijo"]
 __all__ = ["KNeighborsTimeSeriesRegressor"]
 
 import os
+
 import numpy as np
+from joblib import dump, load
 from sktime.distances import distance_factory
 from sktime.regression.base import BaseRegressor
-from joblib import dump, load
 
 
 class KNeighborsTimeSeriesRegressor(BaseRegressor):
@@ -87,12 +88,12 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
         index = 0
         # checkpoint includes a path with the pid.
         if isinstance(self.checkpoint, str):
-            if os.path.isfile(f'{self.checkpoint}.run'):
-                saved_files = load(f'{self.checkpoint}.run')
-                preds = saved_files['preds']
-                index = saved_files['index']
+            if os.path.isfile(f"{self.checkpoint}.run"):
+                saved_files = load(f"{self.checkpoint}.run")
+                preds = saved_files["preds"]
+                index = saved_files["index"]
             else:
-                os.makedirs('/'.join(self.checkpoint.split('/')[:-1]))
+                os.makedirs("/".join(self.checkpoint.split("/")[:-1]))
 
         # Measure distance between train set (self_X) and test set (X)
         for i in range(index, X.shape[0]):
@@ -123,8 +124,8 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
                 raise Exception(f"Invalid kNN weights: {self.weights}")
 
             # Saving files in case checkpoint is selected.
-            if isinstance(self.checkpoint, str) and (i%5 == 0):
-                saved_files = {'preds': preds, 'index': i}
-                dump(saved_files, f'{self.checkpoint}.run')
+            if isinstance(self.checkpoint, str) and (i % 5 == 0):
+                saved_files = {"preds": preds, "index": i}
+                dump(saved_files, f"{self.checkpoint}.run")
 
         return preds

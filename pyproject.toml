@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tsml-eval"
-version = "0.0.2"
+version = "0.1.0"
 description = "A package for benchmarking time series machine learning tools."
 authors = [
     {name = "Matthew Middlehurst", email = "m.middlehurst@uea.ac.uk"},
@@ -33,21 +33,30 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "sktime>=0.15.0,<=0.16.0",
-    "scikit-learn",
-    "convst",
-    "wildboar",
-    "stumpy",
-    "xgboost",
+    "aeon==0.2.0",
+    "scikit-learn>=1.0.2,<=1.2.2",
+    "tsml==0.1.1",
+    "gpustat",
+    "convst>=0.2.4,<=0.2.7",
+    "wildboar>=1.1.0",
+    "stumpy<=1.11.1",
+    "scikit-fda<=0.8.1",
     "networkx",
     "requests",
-    "gpustat",
-    "scikit-fda",
     "pyfftw",
     "psutil",
 ]
 
 [project.optional-dependencies]
+all_extras = [
+    "aeon[all_extras]",
+    "tsml[extras]",
+    "xgboost<=1.7.5",
+]
+deep_learning = [
+    "aeon[dl]",
+    "torch>=1.13.1",
+]
 dev = [
     "pre-commit",
     "pytest",
@@ -59,16 +68,13 @@ dev = [
 docs = [
     "sphinx",
     "sphinx-design",
-    "sphinx-gallery",
     "nbsphinx",
     "numpydoc",
     "jupyter",
     "furo",
-]
-deep_learning = [
-    "tensorflow",
-    "tensorflow-probability",
-    "torch>=1.13.1",
+    "sphinx_issues",
+    "myst-parser",
+    "sphinx-copybutton",
 ]
 
 [project.urls]
@@ -94,8 +100,6 @@ ignore = [
 ]
 
 [tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203"]
 exclude = [
     "tsml_eval/_wip/*",
     "examples/_wip/*"
@@ -108,6 +112,7 @@ per-file-ignores = [
     "tsml_eval/experiments/clustering_experiments.py:E402,T201",
     "tsml_eval/experiments/threaded_clustering_experiments.py:T201",
     "tsml_eval/experiments/distance_clustering_experiments.py:E402,T201",
+    "tsml_eval/publications/*:E402,T201",
 ]
 
 [tool.nbqa.exclude]
@@ -118,6 +123,8 @@ isort = "^docs/examples/|^examples/_wip/"
 [tool.pytest.ini_options]
 addopts = '''
     --ignore tsml_eval/_wip
+    --ignore examples
+    --ignore docs
     --durations 10
     --timeout 600
     --showlocals
