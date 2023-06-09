@@ -21,7 +21,7 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
         Metric to be used for distance computations.
     distance_params : dict or None, default=None
         Parameters used by the distance metric.
-    n_neighbours : int, default=1
+    n_neighbors : int, default=1
         Number of neighbours considered when predicting the target value.
     weights : {"uniform". "distance"}, default="uniform"
         Weight function used in prediction. "distance" means target value
@@ -37,13 +37,13 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
         self,
         distance="euclidean",
         distance_params=None,
-        n_neighbours=1,
+        n_neighbors=1,
         weights="uniform",
         checkpoint=None,
     ):
         self.distance = distance
         self.distance_params = distance_params
-        self.n_neighbours = n_neighbours
+        self.n_neighbors = n_neighbors
         self.weights = weights
         self.checkpoint = checkpoint
 
@@ -62,7 +62,7 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
         self : reference to self.
         """
         if isinstance(self.distance, str):
-            self.metric_ = get_distance_function(metric=self.distance)
+            self.metric = get_distance_function(metric=self.distance)
 
         self._X = X
         self._y = y
@@ -88,7 +88,7 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
                 preds = saved_files["preds"]
                 index = saved_files["index"]
             else:
-                os.makedirs("/".join(self.checkpoint.split("/")[:-1]))
+                os.makedirs("/".join(self.checkpoint.split("/")[:-1]) + "/")
 
         # Measure distance between train set (self_X) and test set (X)
         for i in range(index, X.shape[0]):
@@ -101,8 +101,8 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
             # They might not be ordered within themselves,
             # but it is not necessary and partitioning is
             # O(n) while sorting is O(nlogn)
-            closest_idx = np.argpartition(distances, self.n_neighbours)
-            closest_idx = closest_idx[: self.n_neighbours]
+            closest_idx = np.argpartition(distances, self.n_neighbors)
+            closest_idx = closest_idx[: self.n_neighbors]
 
             closest_targets = self._y[closest_idx]
 
