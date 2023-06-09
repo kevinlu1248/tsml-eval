@@ -88,7 +88,10 @@ class KNeighborsTimeSeriesRegressor(BaseRegressor):
                 preds = saved_files["preds"]
                 index = saved_files["index"]
             else:
-                os.makedirs("/".join(self.checkpoint.split("/")[:-1]) + "/")
+                os.makedirs(
+                    "/".join(self.checkpoint.split("/")[:-1]) + "/",
+                    exist_ok=True,
+                )
 
         # Measure distance between train set (self_X) and test set (X)
         for i in range(index, X.shape[0]):
