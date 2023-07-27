@@ -37,7 +37,6 @@ def run_experiment(args, overwrite=False):
     generated in Java.
     """
     numba.set_num_threads(1)
-
     if os.environ.get("CUDA_VISIBLE_DEVICES") is None:
         try:
             gpu = assign_gpu()
@@ -96,6 +95,7 @@ def run_experiment(args, overwrite=False):
             )
             # Normalise, temporary fix: Make this a a parameter and
             # use an aeon transformer
+            # See https://github.com/aeon-toolkit/aeon/issues/605
             X_train = X_train.squeeze()
             X_test = X_test.squeeze()
             normalise = True
@@ -113,10 +113,10 @@ def run_experiment(args, overwrite=False):
                 )
             # Get number of clusters
             n_clusters = len(np.unique(y_test))
-            # Set up kwarg parameters: these are the distance defaults
+            # Set up kwarg parameter for n_clusters
             paras = {"n_clusters": n_clusters}
             # Pass to set_clusterer
-            clusterer = set_clusterer(clusterer_name, **paras)
+            clusterer = set_clusterer(clusterer_name, random_state=resample_id, **paras)
             run_clustering_experiment(
                 X_train,
                 y_train,
@@ -144,10 +144,6 @@ def run_experiment(args, overwrite=False):
         n_jobs = 4
         overwrite = False
         build_test_file = True
-        clusterer = set_clusterer(
-            clusterer_name, random_state=resample_id, n_jobs=n_jobs
-        )
-        print(f"Local Run of {clusterer_name} ({clusterer.__class__.__name__}).")
 
         build_test_file, build_train_file = _check_existing_results(
             results_path,
@@ -190,7 +186,10 @@ def run_experiment(args, overwrite=False):
         # Set up kwarg parameters: these are the distance defaults
         paras = {"n_clusters": n_clusters}
         # Pass to set_clusterer
-        clusterer = set_clusterer(clusterer_name, **paras)
+        clusterer = set_clusterer(
+            clusterer_name, random_state=resample_id, n_jobs=n_jobs, **paras
+        )
+        print(f"Local Run of {clusterer_name} ({clusterer.__class__.__name__}).")
         run_clustering_experiment(
             X_train,
             y_train,

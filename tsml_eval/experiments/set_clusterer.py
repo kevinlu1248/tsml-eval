@@ -95,6 +95,8 @@ def _set_clusterer_distance_based(
 
     if c == "timeserieskmeans" or c == "kmeans-dtw" or c == "k-means-dtw":
         return TimeSeriesKMeans(metric="dtw", random_state=random_state, **kwargs)
+    if c == "kmeans-ddtw" or c == "k-means-ddtw":
+        return TimeSeriesKMeans(metric="ddtw", random_state=random_state, **kwargs)
     if c == "kmeans-ed" or c == "k-means-ed":
         return TimeSeriesKMeans(metric="euclidean", random_state=random_state, **kwargs)
     if c == "kmeans-edr" or c == "k-means-edr":
@@ -109,8 +111,6 @@ def _set_clusterer_distance_based(
         return TimeSeriesKMeans(metric="twe", random_state=random_state, **kwargs)
     if c == "kmeans-wddtw" or c == "k-means-wddtw":
         return TimeSeriesKMeans(metric="wddtw", random_state=random_state, **kwargs)
-    if c == "kmeans-dtw" or c == "k-means-dtw":
-        return TimeSeriesKMeans(metric="dtw", random_state=random_state, **kwargs)
     if c == "kmeans-dtw" or c == "k-means-dtw":
         return TimeSeriesKMeans(metric="dtw", random_state=random_state, **kwargs)
 
