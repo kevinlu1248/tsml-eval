@@ -111,11 +111,27 @@ def _set_clusterer_distance_based(
         return TimeSeriesKMeans(metric="twe", random_state=random_state, **kwargs)
     if c == "kmeans-wddtw" or c == "k-means-wddtw":
         return TimeSeriesKMeans(metric="wddtw", random_state=random_state, **kwargs)
-    if c == "kmeans-dtw" or c == "k-means-dtw":
-        return TimeSeriesKMeans(metric="dtw", random_state=random_state, **kwargs)
 
     elif c == "timeserieskmedoids" or c == "kmedoids-dtw" or c == "k-medoids-dtw":
         return TimeSeriesKMedoids(metric="dtw", random_state=random_state, **kwargs)
+    if c == "kmedoids-ddtw" or c == "k-medoids-ddtw":
+        return TimeSeriesKMedoids(metric="ddtw", random_state=random_state, **kwargs)
+    if c == "kmedoids-ed" or c == "k-medoids-ed":
+        return TimeSeriesKMedoids(
+            metric="euclidean", random_state=random_state, **kwargs
+        )
+    if c == "kmedoids-edr" or c == "k-medoids-edr":
+        return TimeSeriesKMedoids(metric="edr", random_state=random_state, **kwargs)
+    if c == "kmedoids-erp" or c == "k-medoids-erp":
+        return TimeSeriesKMedoids(metric="erp", random_state=random_state, **kwargs)
+    if c == "kmedoids-lcss" or c == "k-medoids-lcss":
+        return TimeSeriesKMedoids(metric="lcss", random_state=random_state, **kwargs)
+    if c == "kmedoids-msm" or c == "k-medoids-msm":
+        return TimeSeriesKMedoids(metric="msm", random_state=random_state, **kwargs)
+    if c == "kmedoids-twe" or c == "k-medoids-twe":
+        return TimeSeriesKMedoids(metric="twe", random_state=random_state, **kwargs)
+    if c == "kmedoids-wddtw" or c == "k-medoids-wddtw":
+        return TimeSeriesKMedoids(metric="wddtw", random_state=random_state, **kwargs)
 
 
 def _set_clusterer_other(
