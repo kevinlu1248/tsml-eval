@@ -38,7 +38,8 @@ classifiers = [
 ]
 dependencies = [
     "aeon",
-    "tsml"
+    "tsml",
+    "gpustat"
 ]
 
 [project.optional-dependencies]
