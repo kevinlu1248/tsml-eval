@@ -550,6 +550,7 @@ def run_clustering_experiment(
     resample_id=None,
     build_test_file=False,
     build_train_file=True,
+    full_path=False
 ):
     """Run a clustering experiment and save the results to file.
 
@@ -585,6 +586,8 @@ def run_clustering_experiment(
     build_train_file : bool, default=True
         Whether to generate train files or not. The clusterer is fit using train data
         regardless of input.
+    full_path : bool, default=False
+        If to use the full path passed or construct tsml format.
     """
     if not build_test_file and not build_train_file:
         raise Exception(
@@ -661,7 +664,7 @@ def run_clustering_experiment(
             clusterer_name,
             dataset_name,
             results_path,
-            full_path=False,
+            full_path=full_path,
             split="TRAIN",
             resample_id=resample_id,
             timing_type="MILLISECONDS",
@@ -697,7 +700,7 @@ def run_clustering_experiment(
             clusterer_name,
             dataset_name,
             results_path,
-            full_path=False,
+            full_path=full_path,
             split="TEST",
             resample_id=resample_id,
             timing_type="MILLISECONDS",
